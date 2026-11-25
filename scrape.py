@@ -630,8 +630,8 @@ def main():
                     if info.get("youth"):
                         stats["youth"] += 1
                     new = out.add(rows)
-                    for r in new:
-                        log(f"  {r['tier']}  {r['church'][:40]:40} {r['full_name'][:22]:22} {r['role'][:28]:28} {r['email']}")
+                    for r in new:  # the repo and its logs are public: never print names or emails
+                        log(f"  {r['tier']}  {r['state_province']}  {r['role'][:28]}")
                     with lock:
                         done.add(i)
                     out.flush_sheet()

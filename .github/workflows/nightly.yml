@@ -56,16 +56,8 @@ jobs:
           CRM_EXPORT_KEY: ${{ secrets.CRM_EXPORT_KEY }}
         run: python export_instantly.py --upload --limit 300
 
-      # Contact CSVs (names + emails) are never committed: the repo is public. They're kept as a private
-      # download on the run page for 90 days, and every contact is in the Google Sheet anyway.
-      - name: Keep the CSV backup as a private download
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: contacts-backup
-          path: output/
-          if-no-files-found: ignore
-          retention-days: 90
+      # The repo and its run pages are public, so contact data is never committed or uploaded here.
+      # Every contact lives in the Google Sheet (and Supabase/Instantly once uploaded).
 
       - name: Save progress to the repo (runs even if the scrape failed)
         if: always()

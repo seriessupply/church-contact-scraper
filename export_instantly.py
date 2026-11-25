@@ -112,7 +112,7 @@ def main():
         ok = resp.ok and (inner.get("status") == "success" or res.get("mode") == "single" and not res.get("failed_count"))
         if not ok:
             print("!! Instantly did not accept the upload. Nothing marked; the rows stay 'new' for next run.")
-            print(json.dumps(res)[:800])
+            print("Instantly said:", str(res.get("error") or (res.get("result") or {}).get("status")), str(res.get("body", ""))[:300])
             return 1
         print(f"Instantly: uploaded {inner.get('leads_uploaded', res.get('added'))}, "
               f"already there {inner.get('duplicated_leads', 0) or inner.get('skipped_count', 0)}, "

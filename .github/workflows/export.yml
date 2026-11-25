@@ -39,13 +39,8 @@ jobs:
           EXPORT_LIMIT: ${{ github.event.inputs.limit }}
           INCLUDE_B: ${{ github.event.inputs.include_b }}
           CRM_EXPORT_KEY: ${{ secrets.CRM_EXPORT_KEY }}
-        run: python export_instantly.py ${{ github.event.inputs.upload == 'true' && '--upload' || '' }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: instantly-csv
-          path: output/instantly_*.csv
-          if-no-files-found: ignore
-          retention-days: 90
+        # Public repo: no CSV download. Always upload straight to Instantly.
+        run: python export_instantly.py --upload
       - name: Remember what was exported
         if: always()
         run: |
