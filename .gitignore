@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+state/*.tmp
+
+# contact data never goes in the repo (it is public)
+output/

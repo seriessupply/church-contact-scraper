@@ -1,0 +1,41 @@
+name: Refresh Overture church list
+
+# Second church source (free open map data). Runs on the 1st of each month, or by hand.
+on:
+  schedule:
+    - cron: "0 9 1 * *"
+  workflow_dispatch:
+    inputs:
+      probe:
+        description: "Probe only (print schema and counts, write nothing)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repo-writes
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt duckdb
+      - name: Fetch
+        run: python overture_fetch.py ${{ github.event.inputs.probe == 'true' && '--probe' || '' }}
+      - name: Save
+        if: github.event.inputs.probe != 'true'
+        run: |
+          git config user.name "series-supply-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add state/overture
+          git diff --cached --quiet && exit 0
+          git commit -m "Overture church list $(date -u +%Y-%m-%d)"
+          for i in 1 2 3; do git pull --rebase --autostash && git push && break; sleep 5; done

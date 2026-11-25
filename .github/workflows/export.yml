@@ -1,0 +1,57 @@
+name: Export to Instantly
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "How many contacts to export"
+        default: "300"
+      include_b:
+        description: "Also include Tier B (youth@ inboxes, no name)?"
+        type: boolean
+        default: false
+      upload:
+        description: "Add them straight to the Instantly campaign (instead of a CSV to upload by hand)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repo-writes
+  cancel-in-progress: false
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Export
+        env:
+          SHEET_URL: ${{ secrets.SHEET_URL }}
+          SHEET_TOKEN: ${{ secrets.SHEET_TOKEN }}
+          EXPORT_LIMIT: ${{ github.event.inputs.limit }}
+          INCLUDE_B: ${{ github.event.inputs.include_b }}
+          CRM_EXPORT_KEY: ${{ secrets.CRM_EXPORT_KEY }}
+        run: python export_instantly.py ${{ github.event.inputs.upload == 'true' && '--upload' || '' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: instantly-csv
+          path: output/instantly_*.csv
+          if-no-files-found: ignore
+          retention-days: 90
+      - name: Remember what was exported
+        if: always()
+        run: |
+          git config user.name "series-supply-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add state/exported.txt 2>/dev/null || true
+          git diff --cached --quiet && exit 0
+          git commit -m "Export to Instantly $(date -u +%Y-%m-%d)"
+          for i in 1 2 3; do git pull --rebase --autostash && git push && break; sleep 5; done

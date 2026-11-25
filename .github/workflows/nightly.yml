@@ -1,0 +1,78 @@
+name: Nightly contact scrape
+
+on:
+  schedule:
+    # Sun–Thu nights, ~11:17 PM Calgary time in winter (12:17 AM in summer). Cron is UTC.
+    - cron: "17 6 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      test_limit:
+        description: "Stop after N Tier A contacts (leave 0 for the normal 75)"
+        default: "0"
+        required: false
+      max_minutes:
+        description: "Time budget in minutes (normal 25; up to 330 for a big backlog run)"
+        default: "25"
+        required: false
+      workers:
+        description: "Sites crawled at once (normal 10; 20 for a big backlog run)"
+        default: "10"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repo-writes
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 345
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Scrape
+        env:
+          SHEET_URL: ${{ secrets.SHEET_URL }}
+          SHEET_TOKEN: ${{ secrets.SHEET_TOKEN }}
+          TEST_LIMIT: ${{ github.event.inputs.test_limit || '0' }}
+          MAX_MINUTES: ${{ github.event.inputs.max_minutes || '25' }}
+          WORKERS: ${{ github.event.inputs.workers || '10' }}
+        run: python scrape.py
+
+      - name: Add the new youth pastors to the Instantly campaign
+        if: always()
+        env:
+          SHEET_URL: ${{ secrets.SHEET_URL }}
+          SHEET_TOKEN: ${{ secrets.SHEET_TOKEN }}
+          CRM_EXPORT_KEY: ${{ secrets.CRM_EXPORT_KEY }}
+        run: python export_instantly.py --upload --limit 300
+
+      # Contact CSVs (names + emails) are never committed: the repo is public. They're kept as a private
+      # download on the run page for 90 days, and every contact is in the Google Sheet anyway.
+      - name: Keep the CSV backup as a private download
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contacts-backup
+          path: output/
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Save progress to the repo (runs even if the scrape failed)
+        if: always()
+        run: |
+          git config user.name "series-supply-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A state
+          git diff --cached --quiet && exit 0
+          git commit -m "Nightly contacts $(date -u +%Y-%m-%d)"
+          for i in 1 2 3; do git pull --rebase --autostash && git push && break; sleep 5; done
